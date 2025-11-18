@@ -12,12 +12,17 @@ class AzureOpenAIToolAgents:
     """Enhanced agents with tool/function calling capabilities"""
     
     def __init__(self):
+        api_key = os.getenv('AZURE_OPENAI_KEY')
+        api_version = os.getenv('AZURE_OPENAI_API_VERSION')
+        azure_endpoint = os.getenv('AZURE_OPENAI_ENDPOINT')
+        model = os.getenv('AZURE_OPENAI_DEPLOYMENT')
+        
         self.client = AzureOpenAI(
-            api_key=os.getenv('OPENAI_API_KEY'),
-            api_version=os.getenv('OPENAI_API_VERSION'),
-            azure_endpoint=os.getenv('OPENAI_ENDPOINT')
+            api_key=api_key,
+            api_version=api_version,
+            azure_endpoint=azure_endpoint
         )
-        self.model = os.getenv('OPENAI_MODEL')
+        self.model = model
         self.define_tools()
     
     def define_tools(self):

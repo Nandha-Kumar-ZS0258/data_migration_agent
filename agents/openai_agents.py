@@ -26,21 +26,21 @@ class AzureOpenAIAgents:
         
         try:
             if hasattr(st, 'secrets') and st.secrets:
-                api_key = st.secrets.get('OPENAI_API_KEY') or st.secrets.get('AZURE_OPENAI_KEY')
-                api_version = st.secrets.get('OPENAI_API_VERSION') or st.secrets.get('AZURE_OPENAI_API_VERSION')
-                azure_endpoint = st.secrets.get('OPENAI_ENDPOINT') or st.secrets.get('AZURE_OPENAI_ENDPOINT')
-                model = st.secrets.get('OPENAI_MODEL') or st.secrets.get('AZURE_OPENAI_DEPLOYMENT')
+                api_key = st.secrets.get('AZURE_OPENAI_KEY')
+                api_version = st.secrets.get('AZURE_OPENAI_API_VERSION')
+                azure_endpoint = st.secrets.get('AZURE_OPENAI_ENDPOINT')
+                model = st.secrets.get('AZURE_OPENAI_DEPLOYMENT')
         except Exception:
             pass
         
         if not api_key:
-            api_key = os.getenv('OPENAI_API_KEY') or os.getenv('AZURE_OPENAI_KEY')
+            api_key = os.getenv('AZURE_OPENAI_KEY')
         if not api_version:
-            api_version = os.getenv('OPENAI_API_VERSION') or os.getenv('AZURE_OPENAI_API_VERSION') or '2024-02-15-preview'
+            api_version = os.getenv('AZURE_OPENAI_API_VERSION') or '2024-02-15-preview'
         if not azure_endpoint:
-            azure_endpoint = os.getenv('OPENAI_ENDPOINT') or os.getenv('AZURE_OPENAI_ENDPOINT')
+            azure_endpoint = os.getenv('AZURE_OPENAI_ENDPOINT')
         if not model:
-            model = os.getenv('OPENAI_MODEL') or os.getenv('AZURE_OPENAI_DEPLOYMENT') or 'gpt-4'
+            model = os.getenv('AZURE_OPENAI_DEPLOYMENT') or 'gpt-4'
         
         if not api_key:
             self.client = None
@@ -57,14 +57,47 @@ class AzureOpenAIAgents:
         
         azure_endpoint = azure_endpoint.rstrip('/')
         
-        self.client = AzureOpenAI(
-            api_key=api_key,
-            api_version=api_version,
-            azure_endpoint=azure_endpoint
-        )
-        self.model = model
-        self._sample_code_reference_cache = None  # Cache for sample_code.py reference
-        print(f"OpenAI client initialized with endpoint: {azure_endpoint}, model: {model}")
+        # Initialize client with error handling
+        try:
+            self.client = AzureOpenAI(
+                api_key=api_key,
+                api_version=api_version,
+                azure_endpoint=azure_endpoint
+            )
+            self.model = model
+            self._sample_code_reference_cache = None
+            self.init_error = None
+            print(f"OpenAI client initialized with endpoint: {azure_endpoint}, model: {model}")
+        except TypeError as e:
+            # Handle version compatibility issues (like 'proxies' parameter)
+            if 'proxies' in str(e) or 'unexpected keyword' in str(e):
+                print(f"Warning: OpenAI client initialization issue: {e}. Attempting alternative initialization...")
+                # Try with minimal parameters
+                try:
+                    self.client = AzureOpenAI(
+                        api_key=api_key,
+                        api_version=api_version,
+                        azure_endpoint=azure_endpoint
+                    )
+                    self.model = model
+                    self._sample_code_reference_cache = None
+                    self.init_error = None
+                    print(f"OpenAI client initialized successfully (alternative method)")
+                except Exception as e2:
+                    self.client = None
+                    self.model = None
+                    self.init_error = f"OpenAI client initialization failed: {str(e2)}"
+                    print(self.init_error)
+            else:
+                self.client = None
+                self.model = None
+                self.init_error = f"OpenAI client initialization failed: {str(e)}"
+                print(self.init_error)
+        except Exception as e:
+            self.client = None
+            self.model = None
+            self.init_error = f"OpenAI client initialization failed: {str(e)}"
+            print(self.init_error)
     
     # ==================== Streaming Helper Methods ====================
     

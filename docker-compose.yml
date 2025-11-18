@@ -1,0 +1,41 @@
+services:
+  data-migration-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: data-migration-agent
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      # Azure Configuration (with defaults to avoid warnings)
+      - AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID:-}
+      - AZURE_RESOURCE_GROUP=${AZURE_RESOURCE_GROUP:-}
+      - AZURE_DATA_FACTORY=${AZURE_DATA_FACTORY:-}
+      - AZURE_LOCATION=${AZURE_LOCATION:-eastus}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - AZURE_SQL_SERVER=${AZURE_SQL_SERVER:-}
+      - AZURE_SQL_DATABASE=${AZURE_SQL_DATABASE:-}
+      - AZURE_SQL_USER=${AZURE_SQL_USER:-}
+      - AZURE_SQL_PASSWORD=${AZURE_SQL_PASSWORD:-}
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT:-}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY:-}
+      # OpenAI Configuration
+      - AZURE_OPENAI_KEY=${AZURE_OPENAI_KEY:-}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}
+      - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4}
+    volumes:
+      # Mount .streamlit directory if you have secrets.toml
+      - ./.streamlit:/app/.streamlit:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+

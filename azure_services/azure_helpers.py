@@ -21,14 +21,20 @@ def _get_sql_engine_cached():
     try:
         # Try to get from Streamlit secrets first, fallback to environment variables
         try:
-            sql_user = st.secrets.get('AZURE_SQL_USER') or os.getenv('AZURE_SQL_USER')
-            sql_password = st.secrets.get('AZURE_SQL_PASSWORD') or os.getenv('AZURE_SQL_PASSWORD')
-            sql_server = st.secrets.get('AZURE_SQL_SERVER') or os.getenv('AZURE_SQL_SERVER')
-            sql_database = st.secrets.get('AZURE_SQL_DATABASE') or os.getenv('AZURE_SQL_DATABASE')
+            sql_user = st.secrets.get('AZURE_SQL_USER')
+            sql_password = st.secrets.get('AZURE_SQL_PASSWORD')
+            sql_server = st.secrets.get('AZURE_SQL_SERVER')
+            sql_database = st.secrets.get('AZURE_SQL_DATABASE')
         except:
+            pass
+        
+        if not sql_user:
             sql_user = os.getenv('AZURE_SQL_USER')
+        if not sql_password:
             sql_password = os.getenv('AZURE_SQL_PASSWORD')
+        if not sql_server:
             sql_server = os.getenv('AZURE_SQL_SERVER')
+        if not sql_database:
             sql_database = os.getenv('AZURE_SQL_DATABASE')
         
         # Validate required variables
@@ -133,10 +139,14 @@ def _read_csv_from_blob_cached(container_name, blob_path):
     try:
         # Get storage credentials
         try:
-            storage_account = st.secrets.get('AZURE_STORAGE_ACCOUNT') or os.getenv('AZURE_STORAGE_ACCOUNT')
-            storage_key = st.secrets.get('AZURE_STORAGE_KEY') or os.getenv('AZURE_STORAGE_KEY')
+            storage_account = st.secrets.get('AZURE_STORAGE_ACCOUNT')
+            storage_key = st.secrets.get('AZURE_STORAGE_KEY')
         except:
+            pass
+        
+        if not storage_account:
             storage_account = os.getenv('AZURE_STORAGE_ACCOUNT')
+        if not storage_key:
             storage_key = os.getenv('AZURE_STORAGE_KEY')
         
         connection_string = (
@@ -197,10 +207,14 @@ def _list_csv_files_in_blob_cached(container_name, folder_path):
     try:
         # Get storage credentials
         try:
-            storage_account = st.secrets.get('AZURE_STORAGE_ACCOUNT') or os.getenv('AZURE_STORAGE_ACCOUNT')
-            storage_key = st.secrets.get('AZURE_STORAGE_KEY') or os.getenv('AZURE_STORAGE_KEY')
+            storage_account = st.secrets.get('AZURE_STORAGE_ACCOUNT')
+            storage_key = st.secrets.get('AZURE_STORAGE_KEY')
         except:
+            pass
+        
+        if not storage_account:
             storage_account = os.getenv('AZURE_STORAGE_ACCOUNT')
+        if not storage_key:
             storage_key = os.getenv('AZURE_STORAGE_KEY')
         
         connection_string = (
@@ -229,16 +243,38 @@ class AzureServices:
     def __init__(self):
         # Try to get from Streamlit secrets first, fallback to environment variables
         try:
-            self.tenant_id = st.secrets.get('AZURE_TENANT_ID') or os.getenv('AZURE_TENANT_ID')
-            self.client_id = st.secrets.get('AZURE_CLIENT_ID') or os.getenv('AZURE_CLIENT_ID')
-            self.client_secret = st.secrets.get('AZURE_CLIENT_SECRET') or os.getenv('AZURE_CLIENT_SECRET')
-            self.subscription_id = st.secrets.get('AZURE_SUBSCRIPTION_ID') or os.getenv('AZURE_SUBSCRIPTION_ID')
-        except:
+            # Check if Streamlit secrets are available
+            if hasattr(st, 'secrets') and st.secrets is not None:
+                self.tenant_id = st.secrets.get('AZURE_TENANT_ID') or os.getenv('AZURE_TENANT_ID')
+                self.client_id = st.secrets.get('AZURE_CLIENT_ID') or os.getenv('AZURE_CLIENT_ID')
+                self.client_secret = st.secrets.get('AZURE_CLIENT_SECRET') or os.getenv('AZURE_CLIENT_SECRET')
+                self.subscription_id = st.secrets.get('AZURE_SUBSCRIPTION_ID') or os.getenv('AZURE_SUBSCRIPTION_ID')
+            else:
+                # Streamlit secrets not available, use environment variables
+                self.tenant_id = os.getenv('AZURE_TENANT_ID')
+                self.client_id = os.getenv('AZURE_CLIENT_ID')
+                self.client_secret = os.getenv('AZURE_CLIENT_SECRET')
+                self.subscription_id = os.getenv('AZURE_SUBSCRIPTION_ID')
+        except (AttributeError, KeyError, Exception):
             # Fallback to environment variables if Streamlit secrets not available
             self.tenant_id = os.getenv('AZURE_TENANT_ID')
             self.client_id = os.getenv('AZURE_CLIENT_ID')
             self.client_secret = os.getenv('AZURE_CLIENT_SECRET')
             self.subscription_id = os.getenv('AZURE_SUBSCRIPTION_ID')
+        
+        # Validate credentials before creating ClientSecretCredential
+        if not self.tenant_id or not self.client_id or not self.client_secret:
+            missing = []
+            if not self.tenant_id:
+                missing.append('AZURE_TENANT_ID')
+            if not self.client_id:
+                missing.append('AZURE_CLIENT_ID')
+            if not self.client_secret:
+                missing.append('AZURE_CLIENT_SECRET')
+            raise ValueError(
+                f"Missing required Azure credentials: {', '.join(missing)}. "
+                f"Please set these as environment variables or in Streamlit secrets."
+            )
         
         self.credential = ClientSecretCredential(
             tenant_id=self.tenant_id,
@@ -251,10 +287,14 @@ class AzureServices:
     def get_blob_service_client(self):
         """Get Blob Service Client"""
         try:
-            storage_account = st.secrets.get('AZURE_STORAGE_ACCOUNT') or os.getenv('AZURE_STORAGE_ACCOUNT')
-            storage_key = st.secrets.get('AZURE_STORAGE_KEY') or os.getenv('AZURE_STORAGE_KEY')
+            storage_account = st.secrets.get('AZURE_STORAGE_ACCOUNT')
+            storage_key = st.secrets.get('AZURE_STORAGE_KEY')
         except:
+            pass
+        
+        if not storage_account:
             storage_account = os.getenv('AZURE_STORAGE_ACCOUNT')
+        if not storage_key:
             storage_key = os.getenv('AZURE_STORAGE_KEY')
             
         connection_string = (
@@ -370,11 +410,23 @@ class AzureServices:
     def debug_connection_info(self):
         """Debug connection information"""
         try:
-            sql_user = st.secrets.get('AZURE_SQL_USER') or os.getenv('AZURE_SQL_USER')
-            sql_password = st.secrets.get('AZURE_SQL_PASSWORD') or os.getenv('AZURE_SQL_PASSWORD')
-            sql_server = st.secrets.get('AZURE_SQL_SERVER') or os.getenv('AZURE_SQL_SERVER')
-            sql_database = st.secrets.get('AZURE_SQL_DATABASE') or os.getenv('AZURE_SQL_DATABASE')
-            
+            sql_user = st.secrets.get('AZURE_SQL_USER')
+            sql_password = st.secrets.get('AZURE_SQL_PASSWORD')
+            sql_server = st.secrets.get('AZURE_SQL_SERVER')
+            sql_database = st.secrets.get('AZURE_SQL_DATABASE')
+        except:
+            pass
+        
+        if not sql_user:
+            sql_user = os.getenv('AZURE_SQL_USER')
+        if not sql_password:
+            sql_password = os.getenv('AZURE_SQL_PASSWORD')
+        if not sql_server:
+            sql_server = os.getenv('AZURE_SQL_SERVER')
+        if not sql_database:
+            sql_database = os.getenv('AZURE_SQL_DATABASE')
+        
+        try:
             return {
                 'sql_user': sql_user,
                 'sql_password': '***' if sql_password else None,
@@ -570,34 +622,65 @@ class AzureServices:
             if pipeline_class is None:
                 return False, "Could not find pipeline class in generated code. Please ensure the code contains a class with 'deploy_complete_solution' method."
             
-            # Get configuration from secrets
+            # Get configuration from secrets or environment variables
             try:
-                subscription_id = st.secrets.get('AZURE_SUBSCRIPTION_ID', '')
-                resource_group = st.secrets.get('AZURE_RESOURCE_GROUP', '')
-                factory_name = st.secrets.get('AZURE_DATA_FACTORY', '')
-                location = st.secrets.get('AZURE_LOCATION', 'East US')
-                tenant_id = st.secrets.get('AZURE_TENANT_ID', '')
-                client_id = st.secrets.get('AZURE_CLIENT_ID', '')
-                client_secret = st.secrets.get('AZURE_CLIENT_SECRET', '')
-            except:
-                subscription_id = os.getenv('AZURE_SUBSCRIPTION_ID', '')
-                resource_group = os.getenv('AZURE_RESOURCE_GROUP', '')
-                factory_name = os.getenv('AZURE_DATA_FACTORY', '')
-                location = os.getenv('AZURE_LOCATION', 'East US')
-                tenant_id = os.getenv('AZURE_TENANT_ID', '')
-                client_id = os.getenv('AZURE_CLIENT_ID', '')
-                client_secret = os.getenv('AZURE_CLIENT_SECRET', '')
+                if hasattr(st, 'secrets') and st.secrets is not None:
+                    subscription_id = (st.secrets.get('AZURE_SUBSCRIPTION_ID') or os.getenv('AZURE_SUBSCRIPTION_ID', '') or '').strip()
+                    resource_group = (st.secrets.get('AZURE_RESOURCE_GROUP') or os.getenv('AZURE_RESOURCE_GROUP', '') or '').strip()
+                    factory_name = (st.secrets.get('AZURE_DATA_FACTORY') or os.getenv('AZURE_DATA_FACTORY', '') or '').strip()
+                    location = (st.secrets.get('AZURE_LOCATION') or os.getenv('AZURE_LOCATION', 'East US') or 'East US').strip()
+                    tenant_id = (st.secrets.get('AZURE_TENANT_ID') or os.getenv('AZURE_TENANT_ID', '') or '').strip()
+                    client_id = (st.secrets.get('AZURE_CLIENT_ID') or os.getenv('AZURE_CLIENT_ID', '') or '').strip()
+                    client_secret = (st.secrets.get('AZURE_CLIENT_SECRET') or os.getenv('AZURE_CLIENT_SECRET', '') or '').strip()
+                else:
+                    subscription_id = (os.getenv('AZURE_SUBSCRIPTION_ID', '') or '').strip()
+                    resource_group = (os.getenv('AZURE_RESOURCE_GROUP', '') or '').strip()
+                    factory_name = (os.getenv('AZURE_DATA_FACTORY', '') or '').strip()
+                    location = (os.getenv('AZURE_LOCATION', 'East US') or 'East US').strip()
+                    tenant_id = (os.getenv('AZURE_TENANT_ID', '') or '').strip()
+                    client_id = (os.getenv('AZURE_CLIENT_ID', '') or '').strip()
+                    client_secret = (os.getenv('AZURE_CLIENT_SECRET', '') or '').strip()
+            except Exception as e:
+                subscription_id = (os.getenv('AZURE_SUBSCRIPTION_ID', '') or '').strip()
+                resource_group = (os.getenv('AZURE_RESOURCE_GROUP', '') or '').strip()
+                factory_name = (os.getenv('AZURE_DATA_FACTORY', '') or '').strip()
+                location = (os.getenv('AZURE_LOCATION', 'East US') or 'East US').strip()
+                tenant_id = (os.getenv('AZURE_TENANT_ID', '') or '').strip()
+                client_id = (os.getenv('AZURE_CLIENT_ID', '') or '').strip()
+                client_secret = (os.getenv('AZURE_CLIENT_SECRET', '') or '').strip()
             
+            # Validate required credentials - check for empty strings and treat as missing
+            missing_vars = []
+            if not tenant_id:
+                missing_vars.append('AZURE_TENANT_ID')
+            if not client_id:
+                missing_vars.append('AZURE_CLIENT_ID')
+            if not client_secret:
+                missing_vars.append('AZURE_CLIENT_SECRET')
+            if not subscription_id:
+                missing_vars.append('AZURE_SUBSCRIPTION_ID')
+            if not resource_group:
+                missing_vars.append('AZURE_RESOURCE_GROUP')
+            if not factory_name:
+                missing_vars.append('AZURE_DATA_FACTORY')
+            
+            if missing_vars:
+                return False, (
+                    f"Azure credentials not configured. Missing or empty environment variables: {', '.join(missing_vars)}. "
+                    f"Please set these in Azure Web App → Configuration → Application Settings. "
+                    f"Current status: tenant_id={'SET' if tenant_id else 'MISSING'}, "
+                    f"client_id={'SET' if client_id else 'MISSING'}, "
+                    f"client_secret={'SET' if client_secret else 'MISSING'}"
+                )
+            
+            # Credentials are validated - use them directly (don't normalize to None)
             # Check the class __init__ signature to see what parameters it accepts
-            # This prevents TypeError when the generated class has a different signature
-            # than expected (e.g., missing tenant_id, client_id, client_secret)
             import inspect
             try:
                 init_sig = inspect.signature(pipeline_class.__init__)
                 init_params = list(init_sig.parameters.keys())[1:]  # Skip 'self'
                 
                 # Build kwargs dictionary with only accepted parameters
-                # This ensures we only pass parameters that the class actually accepts
                 init_kwargs = {}
                 if 'subscription_id' in init_params:
                     init_kwargs['subscription_id'] = subscription_id
@@ -609,19 +692,86 @@ class AzureServices:
                     init_kwargs['location'] = location
                 if 'use_timestamp' in init_params:
                     init_kwargs['use_timestamp'] = False
-                if 'tenant_id' in init_params:
-                    init_kwargs['tenant_id'] = tenant_id
-                if 'client_id' in init_params:
-                    init_kwargs['client_id'] = client_id
-                if 'client_secret' in init_params:
-                    init_kwargs['client_secret'] = client_secret
                 
-                # Instantiate the pipeline class with only accepted parameters
-                # This prevents "unexpected keyword argument" errors
-                pipeline_instance = pipeline_class(**init_kwargs)
+                # CRITICAL: If class accepts credentials, ensure ALL three are passed
+                accepts_credentials = any(param in init_params for param in ['tenant_id', 'client_id', 'client_secret'])
+                
+                if accepts_credentials:
+                    # Validate each credential individually before adding
+                    if 'tenant_id' in init_params:
+                        if not tenant_id:
+                            return False, "AZURE_TENANT_ID is required but missing or empty"
+                        init_kwargs['tenant_id'] = tenant_id
+                    
+                    if 'client_id' in init_params:
+                        if not client_id:
+                            return False, "AZURE_CLIENT_ID is required but missing or empty"
+                        init_kwargs['client_id'] = client_id
+                    
+                    if 'client_secret' in init_params:
+                        if not client_secret:
+                            return False, "AZURE_CLIENT_SECRET is required but missing or empty"
+                        init_kwargs['client_secret'] = client_secret
+                    
+                    # Final validation: ensure all required credentials are present
+                    required_creds = []
+                    if 'tenant_id' in init_params and not init_kwargs.get('tenant_id'):
+                        required_creds.append('tenant_id')
+                    if 'client_id' in init_params and not init_kwargs.get('client_id'):
+                        required_creds.append('client_id')
+                    if 'client_secret' in init_params and not init_kwargs.get('client_secret'):
+                        required_creds.append('client_secret')
+                    
+                    if required_creds:
+                        return False, f"Missing required credentials: {', '.join(required_creds)}"
+                
+                # Instantiate the pipeline class
+                try:
+                    pipeline_instance = pipeline_class(**init_kwargs)
+                except ValueError as cred_error:
+                    # Check if it's a credential-related error
+                    error_msg = str(cred_error).lower()
+                    if 'credential' in error_msg or 'tenant_id' in error_msg or 'client_id' in error_msg:
+                        # Provide detailed error with credential status
+                        cred_status = {
+                            'tenant_id': 'SET' if tenant_id else 'MISSING',
+                            'client_id': 'SET' if client_id else 'MISSING',
+                            'client_secret': 'SET' if client_secret else 'MISSING'
+                        }
+                        return False, (
+                            f"Credential error: {str(cred_error)}. "
+                            f"Credential status: {cred_status}. "
+                            f"Please verify AZURE_TENANT_ID, AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET "
+                            f"are set correctly in Azure Web App environment variables."
+                        )
+                    raise
+            except ValueError as cred_error:
+                # Catch credential errors specifically (this handles errors from the outer try block)
+                error_msg = str(cred_error).lower()
+                if 'credential' in error_msg or 'tenant_id' in error_msg or 'client_id' in error_msg:
+                    cred_status = {
+                        'tenant_id': 'SET' if tenant_id else 'MISSING',
+                        'client_id': 'SET' if client_id else 'MISSING',
+                        'client_secret': 'SET' if client_secret else 'MISSING'
+                    }
+                    return False, (
+                        f"Credential error when instantiating pipeline: {str(cred_error)}. "
+                        f"Credential status: {cred_status}. "
+                        f"Please verify AZURE_TENANT_ID, AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET are set in Azure Web App environment variables."
+                    )
+                raise
             except Exception as inspect_error:
                 # Fallback: try with all parameters if signature inspection fails
                 try:
+                    # Double-check credentials before fallback
+                    if not tenant_id or not client_id or not client_secret:
+                        return False, (
+                            f"Cannot instantiate pipeline: credentials missing. "
+                            f"tenant_id={'SET' if tenant_id else 'MISSING'}, "
+                            f"client_id={'SET' if client_id else 'MISSING'}, "
+                            f"client_secret={'SET' if client_secret else 'MISSING'}"
+                        )
+                    
                     pipeline_instance = pipeline_class(
                         subscription_id=subscription_id,
                         resource_group=resource_group,
@@ -632,6 +782,16 @@ class AzureServices:
                         client_id=client_id,
                         client_secret=client_secret
                     )
+                except ValueError as cred_error2:
+                    if 'credential' in str(cred_error2).lower():
+                        return False, (
+                            f"Credential error in fallback: {str(cred_error2)}. "
+                            f"Credentials passed: tenant_id={'SET' if tenant_id else 'MISSING'}, "
+                            f"client_id={'SET' if client_id else 'MISSING'}, "
+                            f"client_secret={'SET' if client_secret else 'MISSING'}. "
+                            f"Please verify environment variables in Azure Web App."
+                        )
+                    raise
                 except TypeError as type_error:
                     # If that fails, try with minimal parameters
                     try:
@@ -652,33 +812,52 @@ class AzureServices:
             if len(params) > 1:  # Has additional parameters besides self
                 # Try to get SQL and blob config if needed
                 try:
-                    sql_config = {
-                        'server_name': st.secrets.get('AZURE_SQL_SERVER', ''),
-                        'database_name': st.secrets.get('AZURE_SQL_DATABASE', ''),
-                        'username': st.secrets.get('AZURE_SQL_USER', ''),
-                        'password': st.secrets.get('AZURE_SQL_PASSWORD', '')
-                    }
-                    blob_config = {
-                        'account_name': st.secrets.get('AZURE_STORAGE_ACCOUNT', ''),
-                        'account_key': st.secrets.get('AZURE_STORAGE_KEY', '')
-                    }
-                    pipeline_instance.deploy_complete_solution(sql_config, blob_config)
-                except:
-                    try:
+                    # Try to get from Streamlit secrets first
+                    if hasattr(st, 'secrets') and st.secrets is not None:
                         sql_config = {
-                            'server_name': os.getenv('AZURE_SQL_SERVER', ''),
-                            'database_name': os.getenv('AZURE_SQL_DATABASE', ''),
-                            'username': os.getenv('AZURE_SQL_USER', ''),
-                            'password': os.getenv('AZURE_SQL_PASSWORD', '')
+                            'server_name': (st.secrets.get('AZURE_SQL_SERVER') or os.getenv('AZURE_SQL_SERVER', '') or '').strip(),
+                            'database_name': (st.secrets.get('AZURE_SQL_DATABASE') or os.getenv('AZURE_SQL_DATABASE', '') or '').strip(),
+                            'username': (st.secrets.get('AZURE_SQL_USER') or os.getenv('AZURE_SQL_USER', '') or '').strip(),
+                            'password': (st.secrets.get('AZURE_SQL_PASSWORD') or os.getenv('AZURE_SQL_PASSWORD', '') or '').strip()
                         }
                         blob_config = {
-                            'account_name': os.getenv('AZURE_STORAGE_ACCOUNT', ''),
-                            'account_key': os.getenv('AZURE_STORAGE_KEY', '')
+                            'account_name': (st.secrets.get('AZURE_STORAGE_ACCOUNT') or os.getenv('AZURE_STORAGE_ACCOUNT', '') or '').strip(),
+                            'account_key': (st.secrets.get('AZURE_STORAGE_KEY') or os.getenv('AZURE_STORAGE_KEY', '') or '').strip()
                         }
-                        pipeline_instance.deploy_complete_solution(sql_config, blob_config)
-                    except Exception as e:
-                        # If it fails, try without parameters
+                    else:
+                        sql_config = {
+                            'server_name': (os.getenv('AZURE_SQL_SERVER', '') or '').strip(),
+                            'database_name': (os.getenv('AZURE_SQL_DATABASE', '') or '').strip(),
+                            'username': (os.getenv('AZURE_SQL_USER', '') or '').strip(),
+                            'password': (os.getenv('AZURE_SQL_PASSWORD', '') or '').strip()
+                        }
+                        blob_config = {
+                            'account_name': (os.getenv('AZURE_STORAGE_ACCOUNT', '') or '').strip(),
+                            'account_key': (os.getenv('AZURE_STORAGE_KEY', '') or '').strip()
+                        }
+                    
+                    # Validate SQL and blob configs are not empty
+                    sql_missing = [k for k, v in sql_config.items() if not v]
+                    blob_missing = [k for k, v in blob_config.items() if not v]
+                    
+                    if sql_missing or blob_missing:
+                        missing = []
+                        if sql_missing:
+                            missing.extend([f"AZURE_SQL_{k.upper().replace('_NAME', '')}" for k in sql_missing])
+                        if blob_missing:
+                            missing.extend([f"AZURE_STORAGE_{k.upper().replace('_NAME', '').replace('_KEY', '_KEY')}" for k in blob_missing])
+                        return False, (
+                            f"Missing configuration for deployment: {', '.join(missing)}. "
+                            f"Please set these in Azure Web App → Configuration → Application Settings."
+                        )
+                    
+                    pipeline_instance.deploy_complete_solution(sql_config, blob_config)
+                except Exception as e:
+                    # If it fails, try without parameters (for classes that don't need them)
+                    try:
                         pipeline_instance.deploy_complete_solution()
+                    except Exception as e2:
+                        return False, f"Deployment failed: {str(e2)}. Original error: {str(e)}"
             else:
                 pipeline_instance.deploy_complete_solution()
             

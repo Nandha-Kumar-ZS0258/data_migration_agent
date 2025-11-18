@@ -70,10 +70,116 @@ def get_cached_table_schemas(selected_tables, selected_schemas, azure_services):
 # Initialize session state
 if 'step' not in st.session_state:
     st.session_state.step = 1
+
+# Initialize Azure Services with error handling
 if 'azure_services' not in st.session_state:
-    st.session_state.azure_services = AzureServices()
+    try:
+        st.session_state.azure_services = AzureServices()
+    except ValueError as e:
+        st.error(f"❌ Azure Configuration Error: {str(e)}")
+        st.markdown("---")
+        st.markdown("### 🔧 Configuration Instructions")
+        st.markdown("""
+        **For Azure Web App Deployment:**
+        
+        1. Go to Azure Portal → Your Web App → **Configuration** → **Application Settings**
+        2. Add the following environment variables:
+        
+        **Required Azure Credentials:**
+        - `AZURE_TENANT_ID` - Your Azure AD Tenant ID
+        - `AZURE_CLIENT_ID` - Your Service Principal Client ID  
+        - `AZURE_CLIENT_SECRET` - Your Service Principal Secret
+        - `AZURE_SUBSCRIPTION_ID` - Your Azure Subscription ID
+        
+        **Additional Required Variables:**
+        - `AZURE_RESOURCE_GROUP` - Your resource group name
+        - `AZURE_DATA_FACTORY` - Your Data Factory name
+        - `AZURE_LOCATION` - Azure region (e.g., `eastus`)
+        - `AZURE_SQL_SERVER` - SQL server (e.g., `server.database.windows.net`)
+        - `AZURE_SQL_DATABASE` - Database name
+        - `AZURE_SQL_USER` - SQL username
+        - `AZURE_SQL_PASSWORD` - SQL password
+        - `AZURE_STORAGE_ACCOUNT` - Storage account name
+        - `AZURE_STORAGE_KEY` - Storage account key
+        - `AZURE_OPENAI_KEY` - Azure OpenAI API key
+        - `AZURE_OPENAI_ENDPOINT` - Azure OpenAI endpoint URL
+        - `AZURE_OPENAI_API_VERSION` - API version (e.g., `2024-02-15-preview`)
+        - `AZURE_OPENAI_DEPLOYMENT` - Deployment name/model (e.g., `gpt-4o-mini`)
+        
+        3. Click **Save** and **Restart** the Web App
+        
+        **For Local Development:**
+        - Create `.streamlit/secrets.toml` file with the same variables
+        - Or set them as environment variables
+        """)
+        st.stop()
+
 if 'openai_agents' not in st.session_state:
-    st.session_state.openai_agents = AzureOpenAIAgents()
+    try:
+        st.session_state.openai_agents = AzureOpenAIAgents()
+        # Check if initialization actually succeeded
+        if hasattr(st.session_state.openai_agents, 'client') and st.session_state.openai_agents.client is None:
+            if hasattr(st.session_state.openai_agents, 'init_error'):
+                st.warning(f"⚠️ OpenAI Agent initialized but client is None: {st.session_state.openai_agents.init_error}")
+            else:
+                st.warning("⚠️ OpenAI Agent initialized but client is None. Some features may not work.")
+    except Exception as e:
+        st.warning(f"⚠️ OpenAI Agent initialization warning: {str(e)}")
+        # Always set the attribute, even if initialization failed
+        # Create a minimal object that won't crash when accessed
+        try:
+            # Try to create the object anyway - it might have partial initialization
+            st.session_state.openai_agents = AzureOpenAIAgents()
+        except:
+            # If even creating the object fails, create a fallback object
+            class FallbackOpenAIAgent:
+                def __init__(self, error_msg):
+                    self.client = None
+                    self.model = None
+                    self.init_error = f"OpenAI client failed to initialize: {error_msg}"
+                    self._sample_code_reference_cache = None
+                
+                def detect_column_datatypes(self, csv_data, agent1_analysis=None, target_tables=None, stream_container=None):
+                    return self._create_fallback_datatypes(csv_data, agent1_analysis)
+                
+                def _create_fallback_datatypes(self, csv_data, agent1_analysis=None):
+                    """Fallback implementation using pandas dtypes"""
+                    import pandas as pd
+                    result = {
+                        'reasoning': 'Fallback: Using heuristic data type detection (OpenAI unavailable)',
+                        'columns': {}
+                    }
+                    for col in csv_data.columns:
+                        dtype = str(csv_data[col].dtype)
+                        if 'int' in dtype:
+                            sql_type = 'integer'
+                        elif 'float' in dtype:
+                            sql_type = 'decimal(10,2)'
+                        elif 'datetime' in dtype or 'date' in dtype:
+                            sql_type = 'date'
+                        else:
+                            sql_type = 'varchar(255)'
+                        result['columns'][col] = {
+                            'sql_type': sql_type,
+                            'reasoning': f'Inferred from pandas dtype: {dtype}'
+                        }
+                    return result
+                
+                def analyze_csv_structure_v2(self, csv_data, csv_filename=None, target_tables=None, stream_container=None):
+                    return {
+                        'reasoning': 'Fallback: OpenAI unavailable - using basic structure analysis',
+                        'tables': [],
+                        'fact_tables': [],
+                        'dimension_tables': []
+                    }
+                
+                def generate_python_sdk_code(self, *args, **kwargs):
+                    return {
+                        'code': '# Code generation unavailable - OpenAI client not initialized',
+                        'validation_result': {'is_valid': False, 'issues': ['OpenAI client not available']}
+                    }
+            
+            st.session_state.openai_agents = FallbackOpenAIAgent(str(e))
 
 # ==================== MAIN CONTENT AREA ====================
 
@@ -362,6 +468,9 @@ with tab2:
                             st.text("✅ Target tables schema retrieved")
                         
                         st.text("🤖 Calling OpenAI API for data type detection...")
+                        # Safety check
+                        if not hasattr(st.session_state, 'openai_agents') or st.session_state.openai_agents is None:
+                            raise AttributeError("OpenAI agents not initialized")
                         result = st.session_state.openai_agents.detect_column_datatypes(
                             st.session_state.csv_data,
                             agent1_analysis=None,  # No dependency on CSV analysis anymore
@@ -394,6 +503,9 @@ with tab2:
                     st.info("💡 Using fallback analysis...")
                     try:
                         st.text("📊 Attempting fallback analysis...")
+                        # Safety check
+                        if not hasattr(st.session_state, 'openai_agents') or st.session_state.openai_agents is None:
+                            raise AttributeError("OpenAI agents not initialized")
                         fallback_result = st.session_state.openai_agents._create_fallback_datatypes(
                             st.session_state.csv_data,
                             agent1_analysis=None
@@ -443,6 +555,9 @@ with tab2:
                             st.text("✅ Target tables schema retrieved")
                         
                         st.text("🤖 Calling OpenAI API for CSV structure analysis...")
+                        # Safety check
+                        if not hasattr(st.session_state, 'openai_agents') or st.session_state.openai_agents is None:
+                            raise AttributeError("OpenAI agents not initialized")
                         result = st.session_state.openai_agents.analyze_csv_structure_v2(
                             st.session_state.csv_data,
                             st.session_state.selected_csv,
@@ -576,6 +691,9 @@ with tab2:
                                 with status_container:
                                     st.info("🔄 Agent 3A: Generating decision logic...")
                                 
+                                # Safety check
+                                if not hasattr(st.session_state, 'openai_agents') or st.session_state.openai_agents is None:
+                                    raise AttributeError("OpenAI agents not initialized")
                                 result = st.session_state.openai_agents.generate_python_sdk_code(
                                     csv_result,  # CSV analysis (was agent1_result)
                                     datatype_result,  # Data types (was agent2_result)
